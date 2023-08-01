@@ -294,3 +294,28 @@ resource "aws_instance" "Web" {
     }
   
 }
+
+
+                                                  Creating a new volume and adding it to the newly created instance
+
+> Main instance file. 
+
+# step: 1  --> Launching ec2 instance
+resource "aws_instance" "instance" {
+  ami           = "ami-0f5ee92e2d63afc18"
+  instance_type = "t2.micro"
+}
+
+# step: 2  --> creating volume
+resource "aws_ebs_volume" "myvol" {
+  availability_zone = aws_instance.instance.availability_zone
+  size              = 20
+}
+
+# step: 3 --> attaching ebs to os
+
+resource "aws_volume_attachment" "ebs_att" {
+  device_name = "/dev/sdd"
+  volume_id   = aws_ebs_volume.myvol.id
+  instance_id = aws_instance.instance.id
+}

@@ -31,3 +31,266 @@ resource "aws_security_group" "Sec_group" {
   }
 }
 
+
+
+
+#                                          NEXT Creating a VPC with security groups, routing table, subnet.. everything
+                                                            The following is the variable file
+
+variable "region" {
+     default = "ap-south-1"
+}
+variable "availabilityZone" {
+     default = "ap-south-1a"
+}
+variable "instanceTenancy" {
+    default = "default"
+}
+variable "dnsSupport" {
+    default = true
+}
+variable "dnsHostNames" {
+    default = true
+}
+variable "vpcCIDRblock" {
+    default = "172.16.0.0/16"
+}
+variable "subnetCIDRblock" {
+    default = "172.16.1.0/24"
+}
+variable "destinationCIDRblock" {
+    default = "0.0.0.0/0"
+}
+variable "ingressCIDRblock" {
+    type = list
+    default = [ "0.0.0.0/0" ]
+}
+variable "egressCIDRblock" {
+    type = list
+    default = [ "0.0.0.0/0" ]
+}
+variable "mapPublicIP" {
+    default = true
+}
+
+
+#                                         And the Follwing is the main file itself
+
+# create the VPC
+resource "aws_vpc" "Tech_VPC" {
+  cidr_block           = var.vpcCIDRblock
+  instance_tenancy     = var.instanceTenancy 
+  enable_dns_support   = var.dnsSupport 
+  enable_dns_hostnames = var.dnsHostNames
+tags = {
+    Name = "Tech VPC"
+}
+} # end resource
+# create the Subnet
+resource "aws_subnet" "Tech_VPC_Subnet" {
+  vpc_id                  = aws_vpc.Tech_VPC.id
+  cidr_block              = var.subnetCIDRblock
+  map_public_ip_on_launch = var.mapPublicIP 
+  availability_zone       = var.availabilityZone
+tags = {
+   Name = "Tech VPC Subnet"
+}
+} # end resource
+# Create the Security Group
+resource "aws_security_group" "Tech_VPC_Security_Group" {
+  vpc_id       = aws_vpc.Tech_VPC.id
+  name         = "Tech VPC Security Group"
+  description  = "Tech VPC Security Group"
+  
+  # allow ingress of port 22
+  ingress {
+    cidr_blocks = var.ingressCIDRblock  
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+  } 
+  
+  # allow egress of all ports
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+tags = {
+   Name = "Tech VPC Security Group"
+   Description = "Tech VPC Security Group"
+}
+} # end resource
+# create VPC Network access control list
+resource "aws_network_acl" "Tech_VPC_Security_ACL" {
+  vpc_id = aws_vpc.Tech_VPC.id
+  subnet_ids = [ aws_subnet.Tech_VPC_Subnet.id ]
+# allow ingress port 22
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock 
+    from_port  = 22
+    to_port    = 22
+  }
+  
+  # allow ingress port 80 
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock 
+    from_port  = 80
+    to_port    = 80
+  }
+  
+  # allow ingress ephemeral ports 
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 300
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 1024
+    to_port    = 65535
+  }
+  
+  # allow egress port 22 
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 22 
+    to_port    = 22
+  }
+  
+  # allow egress port 80 
+  egress {
+    protocol   = "tcp"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 80  
+    to_port    = 80 
+  }
+ 
+  # allow egress ephemeral ports
+  egress {
+    protocol   = "tcp"
+    rule_no    = 300
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 1024
+    to_port    = 65535
+  }
+tags = {
+    Name = "Tech VPC ACL"
+}
+} # end resource
+# Create the Internet Gateway
+resource "aws_internet_gateway" "Tech_VPC_GW" {
+ vpc_id = aws_vpc.Tech_VPC.id
+ tags = {
+        Name = "Tech VPC Internet Gateway"
+}
+} # end resource
+# Create the Route Table
+resource "aws_route_table" "Tech_VPC_route_table" {
+ vpc_id = aws_vpc.Tech_VPC.id
+ tags = {
+        Name = "Tech VPC Route Table"
+}
+} # end resource
+# Create the Internet Access
+resource "aws_route" "Tech_VPC_internet_access" {
+  route_table_id         = aws_route_table.Tech_VPC_route_table.id
+  destination_cidr_block = var.destinationCIDRblock
+  gateway_id             = aws_internet_gateway.Tech_VPC_GW.id
+} # end resource
+
+# Associate the Route Table with the Subnet
+resource "aws_route_table_association" "Tech_VPC_association" {
+  subnet_id      = aws_subnet.Tech_VPC_Subnet.id
+  route_table_id = aws_route_table.Tech_VPC_route_table.id
+} # end resource
+
+
+
+
+
+#                                              Creating an EC instance with it's key, and getting that key
+
+#The providers file is to be your own. Not including that here
+
+#First the variable files. MAke sure to change the AMI, as it might be different for different regions.
+#  terraform.tfvars
+
+image_id = "ami-04505e74c0741db8"
+instance_type = "t2.micro"
+ports = [ 22,80,443 ]
+
+
+#  variable.tf
+
+variable "image_id" {
+    type = string
+}
+
+variable "instance_type" {
+    type = string
+}
+
+variable "ports" {
+  type = list(number)
+}
+
+
+#  Security_group.tf 
+
+resource "aws_security_group" "Web" {
+  name        = "Web_SG"
+  description = "Security Group for Web"
+  egress {
+      from_port = 0
+      to_port = 0
+      protocol = "-1"
+      cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  dynamic "ingress" {
+    for_each = var.ports
+    iterator = port
+    content {
+      description = "Port for SG"
+      from_port   = port.value
+      to_port     = port.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+}
+
+
+#  Main instance file
+resource "aws_key_pair" "key-tf" {
+    key_name = "ubuntu"
+    public_key = file("${path.module}/id_rsa.pub")
+}
+
+output "keyname" {
+    value = "${aws_key_pair.key-tf.key_name}"
+  
+}
+
+resource "aws_instance" "Web" {
+    ami = var.image_id
+    instance_type = var.instance_type
+    key_name = aws_key_pair.key-tf.id
+    security_groups = ["${aws_security_group.Web.name}"]
+    tags = {
+        name = "Web-Instance"
+    }
+  
+}

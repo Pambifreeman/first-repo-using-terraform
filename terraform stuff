@@ -74,7 +74,7 @@ variable "mapPublicIP" {
 }
 
 
-#                                         And the Follwing is the main file itself
+#       And the Follwing is the main file itself
 
 # create the VPC
 resource "aws_vpc" "Tech_VPC" {
@@ -227,7 +227,7 @@ resource "aws_route_table_association" "Tech_VPC_association" {
 #First the variable files. MAke sure to change the AMI, as it might be different for different regions.
 #  terraform.tfvars
 
-image_id = "ami-04505e74c0741db8"
+image_id = "ami-0f5ee92e2d63afc18"
 instance_type = "t2.micro"
 ports = [ 22,80,443 ]
 

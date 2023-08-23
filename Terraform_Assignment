@@ -1,0 +1,182 @@
+-----------------VPC, Security Group, Subnets(Public & Private), Route table, Internet Gateways------------------------
+
+resource "aws_vpc" "TechVPC" {
+  cidr_block           = var.vpcCIDRblock
+  instance_tenancy     = var.instanceTenancy 
+  enable_dns_support   = var.dnsSupport 
+  enable_dns_hostnames = var.dnsHostNames
+tags = {
+    Name = "Tech VPC"
+}
+} 
+
+
+resource "aws_subnet" "Tech_VPC_Subnet" {
+  vpc_id                  = aws_vpc.TechVPC.id
+  cidr_block              = var.subnetCIDRblock
+  map_public_ip_on_launch = var.mapPublicIP 
+  availability_zone       = "ap-south-1a"
+tags = {
+   Name = "Tech VPC Public Subnet"
+}
+}
+
+resource "aws_subnet" "Tech_VPC_Private_Subnet" {
+  vpc_id                  = aws_vpc.TechVPC.id
+  cidr_block              = var.subnetCIDRblock2
+  availability_zone       = "ap-south-1a"
+tags = {
+   Name = "Tech VPC Private Subnet"
+}
+}
+
+
+resource "aws_security_group" "Tech_VPC_Security_Group" {
+  vpc_id       = aws_vpc.TechVPC.id
+  name         = "Tech VPC Security Group"
+  description  = "Tech VPC Security Group"
+  
+  ingress {
+    cidr_blocks = var.ingressCIDRblock  
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+  } 
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+tags = {
+   Name = "Tech VPC Security Group"
+   Description = "Tech VPC Security Group"
+}
+}
+
+
+resource "aws_network_acl" "Tech_VPC_Security_ACL" {
+  vpc_id = aws_vpc.TechVPC.id
+  subnet_ids = [ aws_subnet.Tech_VPC_Subnet.id ]
+
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock 
+    from_port  = 22
+    to_port    = 22
+  }
+   
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock 
+    from_port  = 80
+    to_port    = 80
+  }
+   
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 300
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 1024
+    to_port    = 65535
+  }
+   
+  egress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 22 
+    to_port    = 22
+  }
+   
+  egress {
+    protocol   = "tcp"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 80  
+    to_port    = 80 
+  }
+ 
+  egress {
+    protocol   = "tcp"
+    rule_no    = 300
+    action     = "allow"
+    cidr_block = var.destinationCIDRblock
+    from_port  = 1024
+    to_port    = 65535
+  }
+tags = {
+    Name = "Tech VPC ACL"
+}
+}
+
+
+
+resource "aws_internet_gateway" "Tech_VPC_GW" {
+ vpc_id = aws_vpc.TechVPC.id
+ tags = {
+        Name = "Tech VPC Internet Gateway"
+}
+}
+
+
+
+resource "aws_route_table" "Tech_VPC_route_table" {
+ vpc_id = aws_vpc.TechVPC.id
+ tags = {
+        Name = "Tech VPC Route Table"
+}
+}
+
+
+
+resource "aws_route" "Tech_VPC_internet_access" {
+  route_table_id         = aws_route_table.Tech_VPC_route_table.id
+  destination_cidr_block = var.destinationCIDRblock
+  gateway_id             = aws_internet_gateway.Tech_VPC_GW.id
+}
+
+
+resource "aws_route_table_association" "Tech_VPC_association" {
+  subnet_id      = aws_subnet.Tech_VPC_Subnet.id
+  route_table_id = aws_route_table.Tech_VPC_route_table.id
+}
+
+
+---------------------------------------------------Provider file-------------------------------------------------------
+provider "aws" {
+  access_key = "##################"
+  secret_key = "*******************************"
+  region     = "ap-south-1"
+}
+
+
+---------------------------------------------------Instance file-------------------------------------------------------
+resource "aws_instance" "Paramveer_TechVPC" {
+  ami           = "ami-0da59f1af71ea4ad2"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "Tech VPC"
+  }
+  security_groups = ["${aws_security_group.Tech_VPC_Security_Group.name}"]
+  user_data = file("${path.module}/install_nginx.sh")
+  key_name               = "sem8"
+}
+
+
+-------------------------------------------------user data (nginx file)------------------------------------------------
+#!/bin/bash
+cd /tmp
+sudo apt-get update
+sudo apt-get install nginx -y
+sudo echo "Hello from the EC2 instance $(hostname -f)." > /var/www/html/index.nginx-debian.html
+sudo systemctl start nginx
+

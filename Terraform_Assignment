@@ -160,16 +160,18 @@ provider "aws" {
 
 
 ---------------------------------------------------Instance file-------------------------------------------------------
-resource "aws_instance" "Paramveer_TechVPC" {
+resource "aws_instance" "Paramveer_Instance_VPC" {
   ami           = "ami-0da59f1af71ea4ad2"
   instance_type = "t2.micro"
   tags = {
     Name = "Tech VPC"
   }
   security_groups = ["${aws_security_group.Tech_VPC_Security_Group.name}"]
-  user_data = file("${path.module}/install_nginx.sh")
-  key_name               = "sem8"
+  user_data       = file("${path.module}/install_nginx.sh")
+  key_name        = "sem8"
 }
+
+
 
 
 -------------------------------------------------user data (nginx file)------------------------------------------------

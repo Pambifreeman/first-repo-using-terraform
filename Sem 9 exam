@@ -1,0 +1,30 @@
+# main.tf
+
+provider "aws" {
+  region = "us-east-1"  # Change this to your desired AWS region
+}
+
+resource "aws_instance" "example_instance" {
+  ami           = "ami-0c55b159cbfafe1f0"  # Change this to your desired AMI
+  instance_type = "t2.micro"  # Change this to your desired instance type
+
+  tags = {
+    Name = "example-instance"
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update
+              apt-get install -y s3fs
+
+              echo "AWS_ACCESS_KEY_ID:AWS_SECRET_ACCESS_KEY" > /etc/passwd-s3fs
+              chmod 600 /etc/passwd-s3fs
+
+              mkdir /mnt/s3bucket
+              s3fs YOUR_S3_BUCKET_NAME /mnt/s3bucket -o passwd_file=/etc/passwd-s3fs
+              EOF
+}
+
+output "instance_ip" {
+  value = aws_instance.example_instance.public_ip
+}
